@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  createdAt              DateTime   @default(now())
+  email                  String?    @unique
+  firstName              String?
+  id                     String     @id @default(cuid())
+  lastName               String?
+  events                 Event[]
+  password               String
+  bookings               Booking[]
+  updatedAt              DateTime   @updatedAt
+  address                String?
+  county                 String?
+  postalCode             String?
+  identificationNumber   String?
+  messages               Message[]
+  chatRooms              ChatRoomUser[]
+
+  @@map("users")
+}
+
+model Event {
+  createdAt          DateTime    @default(now())
+  description        String
+  id                 String      @id @default(cuid())
+  eventCreatedBy     User        @relation(fields: [eventCreatedById], references: [id])
+  eventCreatedById   String
+  location           Json
+  mapData            Json
+  photos             Json  
+  price              Float
+  title              String
+  bookings           Booking[]
+  updatedAt          DateTime    @updatedAt
+  categories         EventCategory[]
+  chatRoom           ChatRoom?   @relation("EventChatRoom") 
+  chatRoomId         String?
+
+  @@map("events")
+}
+
+model Category {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  events    EventCategory[]
+
+  @@map("categories")
+}
+
+model EventCategory {
+  eventId    String
+  categoryId String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, categoryId])
+}
+
+model Booking {
+  createdAt DateTime @default(now())
+  id        String   @id @default(cuid())
+  status    String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  event     Event    @relation(fields: [eventId], references: [id])
+  eventId   String
+  updatedAt DateTime @updatedAt
+
+  @@map("bookings")
+}
+
+model ChatRoom {
+  id        String      @id @default(cuid())
+  event     Event       @relation("EventChatRoom", fields: [eventId], references: [id])
+  eventId   String      @unique
+  messages  Message[]
+  users     ChatRoomUser[]
+
+  @@map("chatrooms")
+}
+
+model ChatRoomUser {
+  userId    String
+  chatRoomId String
+  user      User      @relation(fields: [userId], references: [id])
+  chatRoom  ChatRoom  @relation(fields: [chatRoomId], references: [id])
+
+  @@id([userId, chatRoomId])
+}
+
+model Message {
+  id        String    @id @default(cuid())
+  content   String
+  createdAt DateTime  @default(now())
+  chatRoom  ChatRoom  @relation(fields: [chatRoomId], references: [id])
+  chatRoomId String
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String
+
+  @@map("messages")
+}
