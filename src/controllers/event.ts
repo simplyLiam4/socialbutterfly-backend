@@ -296,22 +296,44 @@ export const deleteEvent = async (
       );
     }
 
-    const bookingCount = await prismaClient.booking.count({
+    const bookings = await prismaClient.booking.findMany({
       where: { eventId: eventId },
     });
 
-    if (bookingCount > 0) {
-      next(
-        new BadRequestsException(
-          "Cannot delete event tied to a booking",
-          ErrorCode.EVENT_IS_LOCKED
-        )
+    if (bookings.length > 0) {
+      const nonOwnerBooking = bookings.find(
+        (booking) => booking.userId !== user.id
       );
+
+      if (nonOwnerBooking) {
+        return next(
+          new BadRequestsException(
+            "Cannot delete event tied to a booking from a different user",
+            ErrorCode.EVENT_IS_LOCKED
+          )
+        );
+      }
+
+      // Proceed with deletion since all bookings are from the event owner
     }
 
-    await prismaClient.event.delete({
-      where: { id: eventId },
-    });
+    await prismaClient.$transaction([
+      prismaClient.message.deleteMany({
+        where: { chatRoom: { eventId: eventId } },
+      }),
+      prismaClient.chatRoom.delete({
+        where: { eventId: eventId },
+      }),
+      prismaClient.booking.deleteMany({
+        where: { eventId: eventId },
+      }),
+      prismaClient.eventCategory.deleteMany({
+        where: { eventId: eventId },
+      }),
+      prismaClient.event.delete({
+        where: { id: eventId },
+      }),
+    ]);
 
     res.json({ message: "Event deleted successfully" });
   } catch (error) {
